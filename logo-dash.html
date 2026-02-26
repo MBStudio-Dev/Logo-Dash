@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>MB's Logo Dash</title>
+
+    <meta property="og:title" content="MB's Logo Dash">
+    <meta property="og:description" content="Clear the logos to get a high score! A creative challenge from MB Brand Communications.">
+    <meta property="og:image" content="https://www.michaelbell.co.uk/wp-content/themes/mb/assets/img/favicon.png">
+    <meta property="og:url" content="YOUR_HOSTED_URL_HERE">
+    
+    <link rel="icon" type="image/png" href="https://www.michaelbell.co.uk/wp-content/themes/mb/assets/img/favicon.png">
+    <link rel="stylesheet" href="https://use.typekit.net/vlo2vuy.css">
+
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+
+    <style>
+        :root {
+            --dark-blue: #040431;
+            --header-blue: #020220;
+            --mint: #37DC9A;
+            --violet: #7332FF;
+            --scarlet: #FF0000;
+            --lilac: #C873FF;
+            --gold: #FEB139;
+        }
+
+        body {
+            margin: 0; padding: 0;
+            background-color: var(--dark-blue);
+            color: #FFFFFF;
+            font-family: "greycliff-cf", sans-serif;
+            font-weight: 500;
+            overflow: hidden; touch-action: none;
+        }
+
+        #game-header {
+            position: absolute; top: 0; left: 0; width: 100%; height: 50px;
+            background-color: var(--header-blue);
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 0 20px; box-sizing: border-box; z-index: 5;
+        }
+
+        h1, h2, h3 {
+            font-family: "roc-grotesk", sans-serif;
+            font-weight: 800; text-transform: uppercase; margin: 0;
+        }
+
+        #game-header h1 { font-size: 0.9rem; color: #FFFFFF; }
+        .stats-text { font-size: 0.8rem; font-weight: 700; color: #FFFFFF; }
+
+        .overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(4, 4, 49, 0.98); display: flex; flex-direction: column;
+            justify-content: center; align-items: center; z-index: 10; text-align: center; padding: 20px;
+        }
+
+        input {
+            padding: 12px; border-radius: 12px; border: 2px solid var(--violet);
+            background: var(--dark-blue); color: white; font-family: "greycliff-cf", sans-serif;
+            margin-bottom: 15px; text-align: center; width: 220px; outline: none;
+        }
+
+        button {
+            padding: 16px 40px; font-family: "roc-grotesk", sans-serif; font-weight: 800;
+            font-size: 1.1rem; background: var(--violet); color: white;
+            border: none; border-radius: 60px; cursor: pointer; transition: 0.3s;
+            margin: 5px;
+        }
+
+        button:hover { background: var(--lilac); transform: scale(1.05); }
+        .btn-linkedin { background: #0077b5; }
+        .hidden { display: none !important; }
+        
+        .leaderboard-list { margin: 20px 0; width: 280px; font-size: 0.9rem; }
+        .leaderboard-item { display: flex; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.1); padding: 8px 0; }
+        .rank { color: var(--gold); font-family: "roc-grotesk", sans-serif; width: 30px; text-align: left; }
+        .p-name { flex-grow: 1; text-align: left; padding-left: 5px; }
+        .p-score { font-weight: 700; color: var(--mint); }
+    </style>
+</head>
+<body>
+
+<div id="game-header">
+    <h1>MB's Logo Dash</h1>
+    <div class="stats-text">LVL: <span id="lvlDisplay">1</span>/5 | SCORE: <span id="score">0</span></div>
+</div>
+
+<div id="mainOverlay" class="overlay">
+    <h1 id="overlayTitle" style="font-size: 3.5rem; margin-bottom: 10px;">READY?</h1>
+    <p id="overlayMsg" style="margin-bottom: 20px;">Clear the logos to get a high score!</p>
+    
+    <input type="text" id="playerName" placeholder="YOUR NAME" maxlength="15">
+    
+    <div class="leaderboard-list">
+        <h3 style="color: var(--mint); font-size: 0.9rem; margin-bottom: 10px;">TOP 5 CAMPAIGNERS</h3>
+        <div id="leaderboardContent">Loading scores...</div>
+    </div>
+
+    <button onclick="startGame()">START GAME</button>
+</div>
+
+<div id="winOverlay" class="overlay hidden">
+    <h1 style="font-size: 3.5rem; color: var(--mint); margin-bottom: 10px;">WELL DONE!</h1>
+    <p id="winMsg" style="font-size: 1.2rem; margin-bottom: 25px;"></p>
+    <button onclick="nextLevel()">LEVEL UP</button>
+    <button class="btn-linkedin" onclick="shareToLinkedIn()">SHARE ON LINKEDIN</button>
+</div>
+
+<canvas id="gameCanvas"></canvas>
+
+<script>
+    const firebaseConfig = {
+        apiKey: "AIzaSyBLF25Q-FIlLe0tHezN9EOPWSjZn3vq0KE",
+        authDomain: "mb-bricks.firebaseapp.com",
+        projectId: "mb-bricks",
+        storageBucket: "mb-bricks.firebasestorage.app",
+        messagingSenderId: "629039479738",
+        appId: "1:629039479738:web:e1ef090723eab59ca97b83"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+    const COLORS = { bg: "#040431", mint: "#37DC9A", violet: "#7332FF", scarlet: "#FF0000", lilac: "#C873FF", gold: "#FEB139" };
+    const brickColors = [COLORS.mint, COLORS.violet, COLORS.scarlet, COLORS.lilac, COLORS.gold];
+    const MB_LOGO_PATH = new Path2D("M60.03,0h-26.68C14.93,0,0,14.93,0,33.35c0,18.42,14.93,33.35,33.35,33.35,18.42,0,33.35-14.93,33.35-33.35V6.67c0-3.68-2.99-6.67-6.67-6.67ZM34.68,42.97h-4.76v-12.26l-5.88,6.73h-.58l-5.93-6.73v12.26h-4.76v-19.65h4.02l6.95,8.23,6.92-8.23h4.02v19.65ZM48.72,42.97h-10.77v-19.65h9.83c3.17,0,5.95,1.87,5.95,5.12,0,1.97-.88,3.46-2.63,4.46,2.42.81,3.62,2.6,3.62,4.7,0,3.37-2.66,5.37-5.99,5.37ZM47.47,34.97h-4.76v4.04h4.76c1.27,0,2.07-.88,2.07-2,0-1.22-.78-2.04-2.07-2.04ZM48.78,29.31c0-1.14-.78-2.01-2.07-2.01h-3.99v4.02h4.14c1.22,0,1.92-.84,1.92-2.01Z");
+
+    let score = 0, currentLevel = 1, gameRunning = false;
+    let width, height, paddle, ball, bricks = [], brickOscillate = 0;
+
+    async function fetchLeaderboard() {
+        try {
+            const snapshot = await db.collection("scores").orderBy("score", "desc").limit(5).get();
+            let html = "";
+            let rank = 1;
+            snapshot.forEach(doc => {
+                const data = doc.data();
+                html += `<div class="leaderboard-item"><span class="rank">${rank}.</span><span class="p-name">${data.name}</span><span class="p-score">${data.score}</span></div>`;
+                rank++;
+            });
+            document.getElementById("leaderboardContent").innerHTML = html || "Be the first on the board! :)";
+        } catch (e) { console.error(e); }
+    }
+
+    async function saveScoreToFirebase() {
+        const name = document.getElementById("playerName").value || "Anonymous";
+        if (score > 0) {
+            db.collection("scores").add({
+                name: name, score: score, timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            }).then(() => fetchLeaderboard()).catch(e => console.error(e));
+        }
+    }
+
+    function shareToLinkedIn() {
+        const gameUrl = "YOUR_HOSTED_URL_HERE"; 
+        const profileUrl = "https://www.linkedin.com/company/michael-bell-brand-communication/";
+        const shareText = `I just scored ${score} on MB's Logo Dash by MB Brand Communications (${profileUrl}). See if you can beat my score here: ${gameUrl}`;
+        const linkedInUrl = `https://www.linkedin.com/feed/?shareActive=true&text=${encodeURIComponent(shareText)}`;
+        window.open(linkedInUrl, '_blank', 'width=600,height=500');
+    }
+
+    function init() {
+        width = window.innerWidth; height = window.innerHeight;
+        canvas.width = width; canvas.height = height;
+        paddle = { width: width > 600 ? 160 : 120, height: 12, x: (width - 160) / 2, color: COLORS.mint };
+        ball = { x: width / 2, y: height / 2, dx: 4 + currentLevel, dy: -(4 + currentLevel), radius: 7 };
+        createBricks();
+    }
+
+    function createBricks() {
+        bricks = [];
+        let cols = Math.max(4, Math.floor(width / 85));
+        let rows = 2 + currentLevel;
+        let padding = 15;
+        let brickSize = Math.min(55, (width - (padding * (cols + 1))) / cols);
+        let startX = (width - (cols * (brickSize + padding))) / 2 + padding / 2;
+
+        for (let c = 0; c < cols; c++) {
+            bricks[c] = [];
+            for (let r = 0; r < rows; r++) {
+                bricks[c][r] = { x: startX + c * (brickSize + padding), origX: startX + c * (brickSize + padding), y: r * (brickSize + padding) + 120, size: brickSize, status: 1, color: brickColors[r % brickColors.length] };
+            }
+        }
+    }
+
+    function startGame() {
+        if(!document.getElementById("playerName").value) { alert("Please enter your name!"); return; }
+        document.getElementById("mainOverlay").classList.add("hidden");
+        document.getElementById("winOverlay").classList.add("hidden");
+        if(currentLevel === 1) score = 0;
+        document.getElementById("lvlDisplay").innerText = currentLevel;
+        document.getElementById("score").innerText = score;
+        init();
+        gameRunning = true;
+    }
+
+    function nextLevel() {
+        currentLevel++;
+        if(currentLevel > 5) { 
+            gameRunning = false;
+            saveScoreToFirebase();
+            document.getElementById("overlayTitle").innerText = "VICTORY!";
+            document.getElementById("overlayMsg").innerText = "You've mastered Logo Dash. Tea time? :)";
+            currentLevel = 1;
+            document.getElementById("mainOverlay").classList.remove("hidden");
+        } else {
+            startGame();
+        }
+    }
+
+    function gameOver() {
+        gameRunning = false;
+        ball.y = -100; // Move ball away to prevent re-triggering
+        
+        saveScoreToFirebase();
+        
+        document.getElementById("overlayTitle").innerText = "UNLUCKY.";
+        document.getElementById("overlayTitle").style.color = COLORS.scarlet;
+        document.getElementById("overlayMsg").innerHTML = `Level ${currentLevel} reached. <br>Time for a nice cup of tea? :)`;
+        
+        currentLevel = 1;
+        document.getElementById("mainOverlay").classList.remove("hidden");
+    }
+
+    window.addEventListener("mousemove", e => { if(gameRunning) paddle.x = e.clientX - paddle.width / 2; });
+    window.addEventListener("touchmove", e => { if(gameRunning) { paddle.x = e.touches[0].clientX - paddle.width / 2; e.preventDefault(); } }, { passive: false });
+
+    function update() {
+        if (!gameRunning) return;
+        
+        ball.x += ball.dx; 
+        ball.y += ball.dy;
+        brickOscillate += 0.02 * currentLevel;
+
+        if (ball.x + ball.radius > width || ball.x - ball.radius < 0) ball.dx *= -1;
+        if (ball.y - ball.radius < 50) ball.dy *= -1;
+
+        if (ball.y + ball.radius > height - 35 && ball.x > paddle.x && ball.x < paddle.x + paddle.width) {
+            ball.dy = -Math.abs(ball.dy);
+            ball.dx = (ball.x - (paddle.x + paddle.width/2)) * 0.3;
+        }
+
+        let activeBricks = 0;
+        bricks.forEach(col => col.forEach(b => {
+            if (b.status === 1) {
+                activeBricks++;
+                if(currentLevel > 1) b.x = b.origX + Math.sin(brickOscillate) * (10 * currentLevel);
+                if (ball.x > b.x && ball.x < b.x + b.size && ball.y > b.y && ball.y < b.y + b.size) {
+                    ball.dy *= -1; b.status = 0; score += (25 * currentLevel);
+                    document.getElementById("score").innerText = score;
+                }
+            }
+        }));
+
+        if (activeBricks === 0) { 
+            gameRunning = false; 
+            document.getElementById("winMsg").innerText = `Level ${currentLevel} cleared! Intelligent work.`;
+            document.getElementById("winOverlay").classList.remove("hidden"); 
+        }
+
+        if (ball.y - ball.radius > height) {
+            gameOver();
+        }
+    }
+
+    function draw() {
+        ctx.fillStyle = COLORS.bg; 
+        ctx.fillRect(0, 0, width, height);
+        
+        bricks.forEach(col => col.forEach(b => {
+            if (b.status === 1) {
+                ctx.save(); ctx.translate(b.x, b.y);
+                let scale = b.size / 66.7; ctx.scale(scale, scale);
+                ctx.fillStyle = b.color; ctx.fill(MB_LOGO_PATH); ctx.restore();
+            }
+        }));
+        
+        ctx.fillStyle = paddle.color;
+        ctx.beginPath(); 
+        ctx.roundRect(paddle.x, height - 35, paddle.width, paddle.height, 10); 
+        ctx.fill();
+        
+        ctx.beginPath(); 
+        ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2); 
+        ctx.fillStyle = "#FFF"; 
+        ctx.fill(); 
+        ctx.closePath();
+        
+        if (gameRunning) update();
+        requestAnimationFrame(draw);
+    }
+
+    window.addEventListener("resize", () => { width = window.innerWidth; height = window.innerHeight; canvas.width = width; canvas.height = height; });
+    fetchLeaderboard();
+    init(); 
+    draw();
+</script>
+</body>
+</html>
