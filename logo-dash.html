@@ -12,8 +12,8 @@
     <link rel="icon" type="image/png" href="https://www.michaelbell.co.uk/wp-content/themes/mb/assets/img/favicon.png">
     <link rel="stylesheet" href="https://use.typekit.net/vlo2vuy.css">
 
-    <script defer src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-    <script defer src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 
     <style>
         :root {
@@ -23,7 +23,7 @@
         }
         body {
             margin: 0; padding: 0; background-color: var(--dark-blue);
-            color: #FFFFFF; font-family: "greycliff-cf", sans-serif; /* [cite: 131-133] */
+            color: #FFFFFF; font-family: "greycliff-cf", sans-serif; /* [cite: 131-132] */
             font-weight: 500; overflow: hidden; touch-action: none;
         }
         #game-header {
@@ -32,7 +32,7 @@
             justify-content: space-between; align-items: center;
             padding: 0 20px; box-sizing: border-box; z-index: 5;
         }
-        h1, h3 { font-family: "roc-grotesk", sans-serif; font-weight: 800; text-transform: uppercase; margin: 0; }
+        h1, h3 { font-family: "roc-grotesk", sans-serif; font-weight: 800; text-transform: uppercase; margin: 0; } /* [cite: 128] */
         #game-header h1 { font-size: 0.9rem; color: #FFFFFF; }
         .stats-text { font-size: 0.8rem; font-weight: 700; color: #FFFFFF; }
         .overlay {
@@ -68,12 +68,12 @@
 </div>
 
 <div id="mainOverlay" class="overlay">
-    <h1 style="font-size: 3.5rem; margin-bottom: 10px;">READY?</h1>
-    <p style="margin-bottom: 20px;">Clear the logos to get a high score!</p>
+    <h1 id="overlayTitle" style="font-size: 3.5rem; margin-bottom: 10px;">READY?</h1>
+    <p id="overlayMsg" style="margin-bottom: 20px;">Clear the logos to get a high score!</p>
     <input type="text" id="playerName" placeholder="YOUR NAME" maxlength="15">
     <div class="leaderboard-list">
         <h3 style="color: var(--mint); font-size: 0.9rem; margin-bottom: 10px;">TOP 5 CAMPAIGNERS</h3>
-        <div id="leaderboardContent">Tea time? Loading scores...</div>
+        <div id="leaderboardContent">Tea time? Loading...</div>
     </div>
     <button onclick="startGame()">START GAME</button>
 </div>
@@ -99,27 +99,16 @@
 
     let db;
     
-    // Logic to wait for Firebase libraries to finish loading
-    function initFirebase() {
+    // Improved loader for self-hosted environments [cite: 569, 571]
+    window.onload = function() {
         if (typeof firebase !== 'undefined') {
-            try {
-                if (!firebase.apps.length) {
-                    firebase.initializeApp(firebaseConfig);
-                }
-                db = firebase.firestore();
-                console.log("Firebase Intelligent Connection Established.");
-                fetchLeaderboard();
-            } catch (err) {
-                console.error("Firebase Init Error:", err);
-                document.getElementById("leaderboardContent").innerHTML = "Tea break! Config error. :)";
-            }
+            firebase.initializeApp(firebaseConfig);
+            db = firebase.firestore();
+            fetchLeaderboard();
         } else {
-            // Retry after 500ms if not ready yet
-            setTimeout(initFirebase, 500);
+            document.getElementById("leaderboardContent").innerHTML = "Tea break! Check connection. :)";
         }
-    }
-
-    window.addEventListener('load', initFirebase);
+    };
 
     const canvas = document.getElementById("gameCanvas");
     const ctx = canvas.getContext("2d");
@@ -158,13 +147,14 @@
         if (score > 0) {
             db.collection("scores").add({
                 name: name, score: score, timestamp: firebase.firestore.FieldValue.serverTimestamp()
-            }).then(() => fetchLeaderboard()).catch(e => console.error(e));
+            }).then(() => fetchLeaderboard());
         }
     }
 
     function shareToLinkedIn() {
         const gameUrl = window.location.href; 
-        const shareText = `I just scored ${score} on MB's Logo Dash! Beat my score here: ${gameUrl}`;
+        const profileUrl = "https://www.linkedin.com/company/michael-bell-brand-communication/";
+        const shareText = `I just scored ${score} on MB's Logo Dash! Beat my score here: ${gameUrl} @MB Brand Communications`;
         const linkedInUrl = `https://www.linkedin.com/feed/?shareActive=true&text=${encodeURIComponent(shareText)}`;
         window.open(linkedInUrl, '_blank', 'width=600,height=500');
     }
@@ -251,7 +241,7 @@
         }));
         if (activeBricks === 0) { 
             gameRunning = false; 
-            document.getElementById("winMsg").innerText = `Level ${currentLevel} cleared! Intelligent.`;
+            document.getElementById("winMsg").innerText = `Level ${currentLevel} cleared! Intelligent work.`;
             document.getElementById("winOverlay").classList.remove("hidden"); 
         }
         if (ball.y - ball.radius > height) gameOver();
