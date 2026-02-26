@@ -10,6 +10,7 @@
     <meta property="og:image" content="https://www.michaelbell.co.uk/wp-content/themes/mb/assets/img/favicon.png">
     
     <link rel="icon" type="image/png" href="https://www.michaelbell.co.uk/wp-content/themes/mb/assets/img/favicon.png">
+    
     <link rel="stylesheet" href="https://use.typekit.net/vlo2vuy.css">
 
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
@@ -32,7 +33,7 @@
             justify-content: space-between; align-items: center;
             padding: 0 20px; box-sizing: border-box; z-index: 5;
         }
-        h1, h3 { font-family: "roc-grotesk", sans-serif; font-weight: 800; text-transform: uppercase; margin: 0; }
+        h1, h3 { font-family: "roc-grotesk", sans-serif; font-weight: 800; text-transform: uppercase; margin: 0; } /* [cite: 128-130] */
         #game-header h1 { font-size: 0.9rem; color: #FFFFFF; }
         .stats-text { font-size: 0.8rem; font-weight: 700; color: #FFFFFF; }
         .overlay {
@@ -73,7 +74,7 @@
     <input type="text" id="playerName" placeholder="YOUR NAME" maxlength="15">
     <div class="leaderboard-list">
         <h3 style="color: var(--mint); font-size: 0.9rem; margin-bottom: 10px;">TOP 5 CAMPAIGNERS</h3>
-        <div id="leaderboardContent">Tea time? Loading scores...</div>
+        <div id="leaderboardContent">Tea time? Loading...</div>
     </div>
     <button onclick="startGame()">START GAME</button>
 </div>
@@ -88,7 +89,7 @@
 <canvas id="gameCanvas"></canvas>
 
 <script>
-    // --- FIREBASE SETUP ---
+    // --- FIREBASE CONFIG ---
     const firebaseConfig = {
         apiKey: "AIzaSyBLF25Q-FIlLe0tHezN9EOPWSjZn3vq0KE",
         authDomain: "mb-bricks.firebaseapp.com",
@@ -98,11 +99,19 @@
         appId: "1:629039479738:web:e1ef090723eab59ca97b83"
     };
 
-    // Initialize Firebase using the Compat global object
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.firestore();
+    let db;
+    // Ensure Firebase is ready before running [cite: 593-595]
+    window.onload = function() {
+        if (typeof firebase !== 'undefined') {
+            firebase.initializeApp(firebaseConfig);
+            db = firebase.firestore();
+            fetchLeaderboard();
+        } else {
+            document.getElementById("leaderboardContent").innerHTML = "Tea break! Script error. :)";
+        }
+    };
 
-    // --- GAME ENGINE ---
+    // --- GAME ASSETS ---
     const canvas = document.getElementById("gameCanvas");
     const ctx = canvas.getContext("2d");
     const COLORS = { bg: "#040431", mint: "#37DC9A", violet: "#7332FF", scarlet: "#FF0000", lilac: "#C873FF", gold: "#FEB139" };
@@ -113,12 +122,13 @@
     let width, height, paddle, ball, bricks = [], brickOscillate = 0;
 
     async function fetchLeaderboard() {
+        if (!db) return;
         try {
             const snapshot = await db.collection("scores").orderBy("score", "desc").limit(5).get();
             let html = "";
             let rank = 1;
             if (snapshot.empty) {
-                document.getElementById("leaderboardContent").innerHTML = "Be the first on the board! :)";
+                document.getElementById("leaderboardContent").innerHTML = "Be the first to score! :)";
                 return;
             }
             snapshot.forEach(doc => {
@@ -129,22 +139,21 @@
             document.getElementById("leaderboardContent").innerHTML = html;
         } catch (e) {
             console.error(e);
-            document.getElementById("leaderboardContent").innerHTML = "Connection break! :)";
         }
     }
 
     async function saveScoreToFirebase() {
+        if (!db) return;
         const name = document.getElementById("playerName").value || "Anonymous";
         if (score > 0) {
             db.collection("scores").add({
                 name: name, score: score, timestamp: firebase.firestore.FieldValue.serverTimestamp()
-            }).then(() => fetchLeaderboard()).catch(e => console.error(e));
+            }).then(() => fetchLeaderboard());
         }
     }
 
     function shareToLinkedIn() {
         const gameUrl = window.location.href; 
-        const profileUrl = "https://www.linkedin.com/company/michael-bell-brand-communication/";
         const shareText = `I just scored ${score} on MB's Logo Dash! Beat my score here: ${gameUrl}`;
         const linkedInUrl = `https://www.linkedin.com/feed/?shareActive=true&text=${encodeURIComponent(shareText)}`;
         window.open(linkedInUrl, '_blank', 'width=600,height=500');
@@ -255,7 +264,6 @@
     }
 
     window.addEventListener("resize", () => { width = window.innerWidth; height = window.innerHeight; canvas.width = width; canvas.height = height; });
-    fetchLeaderboard();
     init(); draw();
 </script>
 </body>
