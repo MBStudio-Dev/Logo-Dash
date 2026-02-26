@@ -8,7 +8,7 @@
     <meta property="og:title" content="MB's Logo Dash">
     <meta property="og:description" content="Clear the logos to get a high score! A creative challenge from MB Brand Communications.">
     <meta property="og:image" content="https://www.michaelbell.co.uk/wp-content/themes/mb/assets/img/favicon.png">
-    <meta property="og:url" content="YOUR_HOSTED_URL_HERE">
+    <meta property="og:url" content="YOUR_GITHUB_PAGES_URL_HERE">
     
     <link rel="icon" type="image/png" href="https://www.michaelbell.co.uk/wp-content/themes/mb/assets/img/favicon.png">
     <link rel="stylesheet" href="https://use.typekit.net/vlo2vuy.css">
@@ -31,7 +31,7 @@
             margin: 0; padding: 0;
             background-color: var(--dark-blue);
             color: #FFFFFF;
-            font-family: "greycliff-cf", sans-serif;
+            font-family: "greycliff-cf", sans-serif; /* Brand Body Copy [cite: 131] */
             font-weight: 500;
             overflow: hidden; touch-action: none;
         }
@@ -44,7 +44,7 @@
         }
 
         h1, h2, h3 {
-            font-family: "roc-grotesk", sans-serif;
+            font-family: "roc-grotesk", sans-serif; /* Brand Heading [cite: 125] */
             font-weight: 800; text-transform: uppercase; margin: 0;
         }
 
@@ -112,6 +112,7 @@
 <canvas id="gameCanvas"></canvas>
 
 <script>
+    // --- FIREBASE INITIALIZATION ---
     const firebaseConfig = {
         apiKey: "AIzaSyBLF25Q-FIlLe0tHezN9EOPWSjZn3vq0KE",
         authDomain: "mb-bricks.firebaseapp.com",
@@ -133,18 +134,37 @@
     let score = 0, currentLevel = 1, gameRunning = false;
     let width, height, paddle, ball, bricks = [], brickOscillate = 0;
 
+    // --- REFINED LEADERBOARD LOGIC FOR GITHUB PAGES ---
     async function fetchLeaderboard() {
         try {
-            const snapshot = await db.collection("scores").orderBy("score", "desc").limit(5).get();
+            console.log("Fetching MB Global Stats...");
+            const snapshot = await db.collection("scores")
+                .orderBy("score", "desc")
+                .limit(5)
+                .get();
+                
             let html = "";
             let rank = 1;
+            
+            if (snapshot.empty) {
+                document.getElementById("leaderboardContent").innerHTML = "Be the first to clear the logos! :)";
+                return;
+            }
+
             snapshot.forEach(doc => {
                 const data = doc.data();
-                html += `<div class="leaderboard-item"><span class="rank">${rank}.</span><span class="p-name">${data.name}</span><span class="p-score">${data.score}</span></div>`;
+                html += `<div class="leaderboard-item">
+                            <span class="rank">${rank}.</span>
+                            <span class="p-name">${data.name || 'Anonymous'}</span>
+                            <span class="p-score">${data.score}</span>
+                         </div>`;
                 rank++;
             });
-            document.getElementById("leaderboardContent").innerHTML = html || "Be the first on the board! :)";
-        } catch (e) { console.error(e); }
+            document.getElementById("leaderboardContent").innerHTML = html;
+        } catch (e) {
+            console.error("Leaderboard Error:", e);
+            document.getElementById("leaderboardContent").innerHTML = "Tea break! Connection lost. :)";
+        }
     }
 
     async function saveScoreToFirebase() {
@@ -157,7 +177,7 @@
     }
 
     function shareToLinkedIn() {
-        const gameUrl = "YOUR_HOSTED_URL_HERE"; 
+        const gameUrl = "YOUR_GITHUB_PAGES_URL_HERE"; 
         const profileUrl = "https://www.linkedin.com/company/michael-bell-brand-communication/";
         const shareText = `I just scored ${score} on MB's Logo Dash by MB Brand Communications (${profileUrl}). See if you can beat my score here: ${gameUrl}`;
         const linkedInUrl = `https://www.linkedin.com/feed/?shareActive=true&text=${encodeURIComponent(shareText)}`;
@@ -215,14 +235,11 @@
 
     function gameOver() {
         gameRunning = false;
-        ball.y = -100; // Move ball away to prevent re-triggering
-        
+        ball.y = -100; 
         saveScoreToFirebase();
-        
         document.getElementById("overlayTitle").innerText = "UNLUCKY.";
         document.getElementById("overlayTitle").style.color = COLORS.scarlet;
         document.getElementById("overlayMsg").innerHTML = `Level ${currentLevel} reached. <br>Time for a nice cup of tea? :)`;
-        
         currentLevel = 1;
         document.getElementById("mainOverlay").classList.remove("hidden");
     }
@@ -232,19 +249,14 @@
 
     function update() {
         if (!gameRunning) return;
-        
-        ball.x += ball.dx; 
-        ball.y += ball.dy;
+        ball.x += ball.dx; ball.y += ball.dy;
         brickOscillate += 0.02 * currentLevel;
-
         if (ball.x + ball.radius > width || ball.x - ball.radius < 0) ball.dx *= -1;
         if (ball.y - ball.radius < 50) ball.dy *= -1;
-
         if (ball.y + ball.radius > height - 35 && ball.x > paddle.x && ball.x < paddle.x + paddle.width) {
             ball.dy = -Math.abs(ball.dy);
             ball.dx = (ball.x - (paddle.x + paddle.width/2)) * 0.3;
         }
-
         let activeBricks = 0;
         bricks.forEach(col => col.forEach(b => {
             if (b.status === 1) {
@@ -256,22 +268,16 @@
                 }
             }
         }));
-
         if (activeBricks === 0) { 
             gameRunning = false; 
             document.getElementById("winMsg").innerText = `Level ${currentLevel} cleared! Intelligent work.`;
             document.getElementById("winOverlay").classList.remove("hidden"); 
         }
-
-        if (ball.y - ball.radius > height) {
-            gameOver();
-        }
+        if (ball.y - ball.radius > height) gameOver();
     }
 
     function draw() {
-        ctx.fillStyle = COLORS.bg; 
-        ctx.fillRect(0, 0, width, height);
-        
+        ctx.fillStyle = COLORS.bg; ctx.fillRect(0, 0, width, height);
         bricks.forEach(col => col.forEach(b => {
             if (b.status === 1) {
                 ctx.save(); ctx.translate(b.x, b.y);
@@ -279,26 +285,16 @@
                 ctx.fillStyle = b.color; ctx.fill(MB_LOGO_PATH); ctx.restore();
             }
         }));
-        
         ctx.fillStyle = paddle.color;
-        ctx.beginPath(); 
-        ctx.roundRect(paddle.x, height - 35, paddle.width, paddle.height, 10); 
-        ctx.fill();
-        
-        ctx.beginPath(); 
-        ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2); 
-        ctx.fillStyle = "#FFF"; 
-        ctx.fill(); 
-        ctx.closePath();
-        
+        ctx.beginPath(); ctx.roundRect(paddle.x, height - 35, paddle.width, paddle.height, 10); ctx.fill();
+        ctx.beginPath(); ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2); ctx.fillStyle = "#FFF"; ctx.fill(); ctx.closePath();
         if (gameRunning) update();
         requestAnimationFrame(draw);
     }
 
     window.addEventListener("resize", () => { width = window.innerWidth; height = window.innerHeight; canvas.width = width; canvas.height = height; });
     fetchLeaderboard();
-    init(); 
-    draw();
+    init(); draw();
 </script>
 </body>
 </html>
