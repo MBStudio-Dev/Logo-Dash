@@ -8,7 +8,6 @@
     <meta property="og:title" content="MB's Logo Dash">
     <meta property="og:description" content="Clear the logos to get a high score! A creative challenge from MB Brand Communications.">
     <meta property="og:image" content="https://www.michaelbell.co.uk/wp-content/themes/mb/assets/img/favicon.png">
-    <meta property="og:url" content="YOUR_GITHUB_PAGES_URL_HERE">
     
     <link rel="icon" type="image/png" href="https://www.michaelbell.co.uk/wp-content/themes/mb/assets/img/favicon.png">
     <link rel="stylesheet" href="https://use.typekit.net/vlo2vuy.css">
@@ -31,7 +30,7 @@
             margin: 0; padding: 0;
             background-color: var(--dark-blue);
             color: #FFFFFF;
-            font-family: "greycliff-cf", sans-serif; /* Brand Body Copy [cite: 131] */
+            font-family: "greycliff-cf", sans-serif; /* [cite: 131-133] */
             font-weight: 500;
             overflow: hidden; touch-action: none;
         }
@@ -44,7 +43,7 @@
         }
 
         h1, h2, h3 {
-            font-family: "roc-grotesk", sans-serif; /* Brand Heading [cite: 125] */
+            font-family: "roc-grotesk", sans-serif; /* [cite: 125, 128] */
             font-weight: 800; text-transform: uppercase; margin: 0;
         }
 
@@ -112,7 +111,6 @@
 <canvas id="gameCanvas"></canvas>
 
 <script>
-    // --- FIREBASE INITIALIZATION ---
     const firebaseConfig = {
         apiKey: "AIzaSyBLF25Q-FIlLe0tHezN9EOPWSjZn3vq0KE",
         authDomain: "mb-bricks.firebaseapp.com",
@@ -134,35 +132,25 @@
     let score = 0, currentLevel = 1, gameRunning = false;
     let width, height, paddle, ball, bricks = [], brickOscillate = 0;
 
-    // --- REFINED LEADERBOARD LOGIC FOR GITHUB PAGES ---
     async function fetchLeaderboard() {
         try {
-            console.log("Fetching MB Global Stats...");
-            const snapshot = await db.collection("scores")
-                .orderBy("score", "desc")
-                .limit(5)
-                .get();
-                
+            const snapshot = await db.collection("scores").orderBy("score", "desc").limit(5).get();
             let html = "";
             let rank = 1;
             
             if (snapshot.empty) {
-                document.getElementById("leaderboardContent").innerHTML = "Be the first to clear the logos! :)";
+                document.getElementById("leaderboardContent").innerHTML = "Be the first on the board! :)";
                 return;
             }
 
             snapshot.forEach(doc => {
                 const data = doc.data();
-                html += `<div class="leaderboard-item">
-                            <span class="rank">${rank}.</span>
-                            <span class="p-name">${data.name || 'Anonymous'}</span>
-                            <span class="p-score">${data.score}</span>
-                         </div>`;
+                html += `<div class="leaderboard-item"><span class="rank">${rank}.</span><span class="p-name">${data.name || 'Anonymous'}</span><span class="p-score">${data.score}</span></div>`;
                 rank++;
             });
             document.getElementById("leaderboardContent").innerHTML = html;
         } catch (e) {
-            console.error("Leaderboard Error:", e);
+            console.error(e);
             document.getElementById("leaderboardContent").innerHTML = "Tea break! Connection lost. :)";
         }
     }
@@ -172,14 +160,16 @@
         if (score > 0) {
             db.collection("scores").add({
                 name: name, score: score, timestamp: firebase.firestore.FieldValue.serverTimestamp()
-            }).then(() => fetchLeaderboard()).catch(e => console.error(e));
+            }).then(() => {
+                setTimeout(fetchLeaderboard, 1000); // Wait 1s for sync [cite: 569]
+            }).catch(e => console.error(e));
         }
     }
 
     function shareToLinkedIn() {
-        const gameUrl = "YOUR_GITHUB_PAGES_URL_HERE"; 
+        const gameUrl = window.location.href; 
         const profileUrl = "https://www.linkedin.com/company/michael-bell-brand-communication/";
-        const shareText = `I just scored ${score} on MB's Logo Dash by MB Brand Communications (${profileUrl}). See if you can beat my score here: ${gameUrl}`;
+        const shareText = `I just scored ${score} on MB's Logo Dash! Beat me here: ${gameUrl}`;
         const linkedInUrl = `https://www.linkedin.com/feed/?shareActive=true&text=${encodeURIComponent(shareText)}`;
         window.open(linkedInUrl, '_blank', 'width=600,height=500');
     }
