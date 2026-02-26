@@ -10,11 +10,10 @@
     <meta property="og:image" content="https://www.michaelbell.co.uk/wp-content/themes/mb/assets/img/favicon.png">
     
     <link rel="icon" type="image/png" href="https://www.michaelbell.co.uk/wp-content/themes/mb/assets/img/favicon.png">
-    
     <link rel="stylesheet" href="https://use.typekit.net/vlo2vuy.css">
 
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <script defer src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script defer src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
 
     <style>
         :root {
@@ -33,7 +32,7 @@
             justify-content: space-between; align-items: center;
             padding: 0 20px; box-sizing: border-box; z-index: 5;
         }
-        h1, h3 { font-family: "roc-grotesk", sans-serif; font-weight: 800; text-transform: uppercase; margin: 0; } /* [cite: 128-130] */
+        h1, h3 { font-family: "roc-grotesk", sans-serif; font-weight: 800; text-transform: uppercase; margin: 0; }
         #game-header h1 { font-size: 0.9rem; color: #FFFFFF; }
         .stats-text { font-size: 0.8rem; font-weight: 700; color: #FFFFFF; }
         .overlay {
@@ -74,7 +73,7 @@
     <input type="text" id="playerName" placeholder="YOUR NAME" maxlength="15">
     <div class="leaderboard-list">
         <h3 style="color: var(--mint); font-size: 0.9rem; margin-bottom: 10px;">TOP 5 CAMPAIGNERS</h3>
-        <div id="leaderboardContent">Tea time? Loading...</div>
+        <div id="leaderboardContent">Tea time? Loading scores...</div>
     </div>
     <button onclick="startGame()">START GAME</button>
 </div>
@@ -89,7 +88,6 @@
 <canvas id="gameCanvas"></canvas>
 
 <script>
-    // --- FIREBASE CONFIG ---
     const firebaseConfig = {
         apiKey: "AIzaSyBLF25Q-FIlLe0tHezN9EOPWSjZn3vq0KE",
         authDomain: "mb-bricks.firebaseapp.com",
@@ -100,18 +98,29 @@
     };
 
     let db;
-    // Ensure Firebase is ready before running [cite: 593-595]
-    window.onload = function() {
+    
+    // Logic to wait for Firebase libraries to finish loading
+    function initFirebase() {
         if (typeof firebase !== 'undefined') {
-            firebase.initializeApp(firebaseConfig);
-            db = firebase.firestore();
-            fetchLeaderboard();
+            try {
+                if (!firebase.apps.length) {
+                    firebase.initializeApp(firebaseConfig);
+                }
+                db = firebase.firestore();
+                console.log("Firebase Intelligent Connection Established.");
+                fetchLeaderboard();
+            } catch (err) {
+                console.error("Firebase Init Error:", err);
+                document.getElementById("leaderboardContent").innerHTML = "Tea break! Config error. :)";
+            }
         } else {
-            document.getElementById("leaderboardContent").innerHTML = "Tea break! Script error. :)";
+            // Retry after 500ms if not ready yet
+            setTimeout(initFirebase, 500);
         }
-    };
+    }
 
-    // --- GAME ASSETS ---
+    window.addEventListener('load', initFirebase);
+
     const canvas = document.getElementById("gameCanvas");
     const ctx = canvas.getContext("2d");
     const COLORS = { bg: "#040431", mint: "#37DC9A", violet: "#7332FF", scarlet: "#FF0000", lilac: "#C873FF", gold: "#FEB139" };
@@ -128,7 +137,7 @@
             let html = "";
             let rank = 1;
             if (snapshot.empty) {
-                document.getElementById("leaderboardContent").innerHTML = "Be the first to score! :)";
+                document.getElementById("leaderboardContent").innerHTML = "Be the first on the board! :)";
                 return;
             }
             snapshot.forEach(doc => {
@@ -139,6 +148,7 @@
             document.getElementById("leaderboardContent").innerHTML = html;
         } catch (e) {
             console.error(e);
+            document.getElementById("leaderboardContent").innerHTML = "Connection break! :)";
         }
     }
 
@@ -148,7 +158,7 @@
         if (score > 0) {
             db.collection("scores").add({
                 name: name, score: score, timestamp: firebase.firestore.FieldValue.serverTimestamp()
-            }).then(() => fetchLeaderboard());
+            }).then(() => fetchLeaderboard()).catch(e => console.error(e));
         }
     }
 
